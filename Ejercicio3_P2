@@ -1,0 +1,109 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.fft import fft, fftfreq
+from scipy.signal import butter, filtfilt
+
+df = pd.read_csv("Appendix 2 - co2-ppm-mauna-loa-19651980 1.csv")
+
+# Verificar datos
+print(df.head())
+
+# Convertir toda la tabla a numérico (solo deja números)
+df_numeric = df.apply(pd.to_numeric, errors='coerce')
+
+# Tomar la columna con más datos (probablemente CO2)
+co2 = df_numeric.iloc[:, -1].dropna().values
+
+print(co2[:10])
+
+# Filtro tipo suavizado (alpha y div_factor)
+configs = [(0.2,2), (0.2,5), (0.2,10)]
+
+plt.figure()
+
+for a, d in configs:
+    temp = np.zeros_like(co2)
+    temp[0] = co2[0]
+    for i in range(1, len(co2)):
+        temp[i] = (a/d)*co2[i] + (1 - a/d)*temp[i-1]
+    
+    plt.plot(temp, label=f"alpha={a}, div={d}")
+
+plt.plot(co2, label="Original", alpha=0.3)
+plt.legend()
+plt.title("Comparación filtros alpha/div_factor")
+plt.grid()
+plt.show()
+
+# Configuraciones a probar (fc, orden)
+configs = [
+    (0.1, 2),
+    (0.05, 4),
+    (0.02, 6)
+]
+
+fs = 1
+N = len(co2)
+xf = fftfreq(N, 1/fs)
+
+yf_original = fft(co2)
+
+plt.figure()
+
+# FFT original
+plt.plot(xf[:N//2], np.abs(yf_original[:N//2]), label="Original", linewidth=2)
+
+# Probar diferentes configuraciones
+for fc, orden in configs:
+    b, a = butter(orden, fc/(fs/2), btype='low')
+    filtered_lp = filtfilt(b, a, co2)
+    
+    yf_filtrada = fft(filtered_lp)
+    
+    plt.plot(
+        xf[:N//2],
+        np.abs(yf_filtrada[:N//2]),
+        label=f"fc={fc}, orden={orden}"
+    )
+
+plt.title("Comparación de filtros pasa-bajas (cutoff y orden)")
+plt.xlabel("Frecuencia")
+plt.ylabel("Magnitud")
+plt.legend()
+plt.grid()
+plt.show()
+
+# FILTRO ALPHA/DIV (una configuración elegida) 
+alpha = 0.2
+div_factor = 5
+
+filtered_alpha = np.zeros_like(co2)
+filtered_alpha[0] = co2[0]
+
+for i in range(1, len(co2)):
+    filtered_alpha[i] = (alpha/div_factor)*co2[i] + (1 - alpha/div_factor)*filtered_alpha[i-1]
+
+# FILTRO BUTTERWORTH (una configuración elegida) 
+fs = 1
+fc = 0.05
+orden = 4
+
+b, a = butter(orden, fc/(fs/2), btype='low')
+filtered_butter = filtfilt(b, a, co2)
+
+# COMPARACIÓN EN EL TIEMPO
+plt.figure()
+
+plt.plot(co2, label="Original", alpha=0.4)
+plt.plot(filtered_alpha, label="Alpha/Div", linewidth=2)
+plt.plot(filtered_butter, label="Butterworth", linewidth=2)
+
+plt.title("Comparación de filtros en el dominio del tiempo")
+plt.xlabel("Tiempo")
+plt.ylabel("CO2")
+plt.legend()
+plt.grid()
+
+plt.savefig("comparacion_tiempo.png")
+plt.show()
