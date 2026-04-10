@@ -1,0 +1,73 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.fft import fft, fftfreq
+
+# Señal con 2 senos (1 Hz y 10 Hz) + constante
+# Parámetros
+fs = 100
+t = np.linspace(0, 2, 2*fs, endpoint=False)
+
+# Señales
+s1 = np.sin(2*np.pi*1*t)
+s2 = np.sin(2*np.pi*10*t)
+constante = 2
+
+signal = s1 + s2 + constante
+
+# FFT
+N = len(signal)
+yf = fft(signal)
+xf = fftfreq(N, 1/fs)
+
+# Gráficas
+plt.figure()
+plt.plot(t, signal)
+plt.title("Señal en el tiempo")
+plt.grid()
+plt.savefig("p1_tiempo.png")
+
+plt.figure()
+plt.plot(xf[:N//2], np.abs(yf[:N//2]))
+plt.title("Señal en frecuencia")
+plt.grid()
+plt.savefig("p1_frecuencia.png")
+
+plt.show()
+
+# Ruido gaussiano
+ruido = np.random.normal(0, 1, len(t))
+
+yf_ruido = fft(ruido)
+
+plt.figure()
+plt.plot(t, ruido)
+plt.title("Ruido en el tiempo")
+plt.grid()
+plt.savefig("p2_tiempo.png")
+
+plt.figure()
+plt.plot(xf[:N//2], np.abs(yf_ruido[:N//2]))
+plt.title("Ruido en frecuencia")
+plt.grid()
+plt.savefig("p2_frecuencia.png")
+
+plt.show()
+
+# Señal combinada
+signal_total = 3*s1 + 3*s2 + 2 + ruido
+
+yf_total = fft(signal_total)
+
+plt.figure()
+plt.plot(t, signal_total)
+plt.title("Señal combinada")
+plt.grid()
+plt.savefig("p3_tiempo.png")
+
+plt.figure()
+plt.plot(xf[:N//2], np.abs(yf_total[:N//2]))
+plt.title("Frecuencia señal combinada")
+plt.grid()
+plt.savefig("p3_frecuencia.png")
+
+plt.show()
