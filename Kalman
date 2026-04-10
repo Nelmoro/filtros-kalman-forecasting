@@ -1,0 +1,139 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# 1. CARGAR DATOS
+
+df = pd.read_csv("Appendix 1 - xy_motion_kalman_filter_example.csv")
+df.columns = ["x", "y"]
+
+# 2. VALOR REAL (APROXIMADO)
+
+true_x = df["x"].rolling(window=5, center=True).mean()
+true_y = df["y"].rolling(window=5, center=True).mean()
+
+# 3. FUNCIÓN FILTRO DE KALMAN
+
+def kalman_filter(df, Q_val, R_val):
+
+    dt = 1
+
+    F = np.array([[1, 0, dt, 0],
+                  [0, 1, 0, dt],
+                  [0, 0, 1, 0],
+                  [0, 0, 0, 1]])
+
+    H = np.array([[1, 0, 0, 0],
+                  [0, 1, 0, 0]])
+
+    Q = np.eye(4) * Q_val
+    R = np.eye(2) * R_val
+
+    x = np.array([[df.iloc[0, 0]],
+                  [df.iloc[0, 1]],
+                  [0],
+                  [0]])
+
+    if Q_val >= 10: 
+        # 1. Posición inicial con un error gigante (150 unidades)
+        x = np.array([[df.iloc[0, 0] + 150], [df.iloc[0, 1] + 150], [0], [0]])
+        
+        # 2. P inicial casi nula: El filtro "cree" ciegamente que su error es la verdad
+        P = np.eye(4) * 0.0000001 
+        
+        # 3. Forzamos que ignore al sensor: Sobrescribimos R solo aquí
+        # Esto hará que el filtro tarde cientos de puntos en corregirse
+        R = np.eye(2) * 5000.0 
+    else:
+        # Escenarios 1 y 3 (Se mantienen normales)
+        x = np.array([[df.iloc[0, 0]], [df.iloc[0, 1]], [0], [0]])
+        P = np.eye(4) * 500
+
+    estimaciones = []    
+
+    for i in range(len(df)):
+
+        z = np.array([[df.iloc[i, 0]],
+                      [df.iloc[i, 1]]])
+
+        # Predicción
+        x = F @ x
+        P = F @ P @ F.T + Q
+
+        # Ganancia de Kalman
+        K = P @ H.T @ np.linalg.inv(H @ P @ H.T + R)
+
+        # Actualización
+        x = x + K @ (z - H @ x)
+        P = (np.eye(4) - K @ H) @ P
+
+        estimaciones.append([x[0, 0], x[1, 0]])
+
+    return np.array(estimaciones)
+
+# 4. ESCENARIOS DEL EJERCICIO 2
+
+# Escenario 1: Todos cercanos
+est1 = kalman_filter(df, Q_val=0.01, R_val=0.01)
+
+# Escenario 2: Todos diferentes
+est2 = kalman_filter(df, Q_val=10, R_val=0.001)
+
+# Escenario 3: KF diferente
+est3 = kalman_filter(df, Q_val=0.0001, R_val=10)
+
+# 5. FUNCIONES DE GRÁFICAS
+
+def graficar_trayectoria(df, est, titulo):
+    plt.figure()
+    plt.plot(df["x"], df["y"], linestyle='dashed', label="Medición")
+    plt.plot(est[:, 0], est[:, 1], label="Kalman")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.title(titulo)
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+
+def graficar_eje_x(df, est, titulo):
+    plt.figure()
+    plt.plot(df["x"], linestyle='dashed', label="Medición")
+    plt.plot(est[:, 0], label="Kalman")
+    plt.plot(true_x, label="Valor real (aprox)")
+    plt.title(titulo)
+    plt.xlabel("Tiempo")
+    plt.ylabel("Posición X")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+
+def graficar_eje_y(df, est, titulo):
+    plt.figure()
+    plt.plot(df["y"], linestyle='dashed', label="Medición")
+    plt.plot(est[:, 1], label="Kalman")
+    plt.plot(true_y, label="Valor real (aprox)")
+    plt.title(titulo)
+    plt.xlabel("Tiempo")
+    plt.ylabel("Posición Y")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+# 6. GRAFICAR RESULTADOS
+
+# ESCENARIO 1
+graficar_trayectoria(df, est1, "Escenario 1: Todos cercanos")
+graficar_eje_x(df, est1, "Escenario 1 - Eje X")
+graficar_eje_y(df, est1, "Escenario 1 - Eje Y")
+
+# ESCENARIO 2
+graficar_trayectoria(df, est2, "Escenario 2: Todos diferentes")
+graficar_eje_x(df, est2, "Escenario 2 - Eje X")
+graficar_eje_y(df, est2, "Escenario 2 - Eje Y")
+
+# ESCENARIO 3
+graficar_trayectoria(df, est3, "Escenario 3: KF diferente")
+graficar_eje_x(df, est3, "Escenario 3 - Eje X")
+graficar_eje_y(df, est3, "Escenario 3 - Eje Y")
